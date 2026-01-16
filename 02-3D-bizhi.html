@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>双击切换 3D 壁纸效果</title>
+<style>
+    body, html {
+        margin: 0;
+        padding: 0;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        background-color: #000;
+        /* 禁止文字被选中，防止双击时选蓝一大片，影响体验 */
+        user-select: none; 
+    }
+
+    .wallpaper-container {
+        width: 100vw;
+        height: 100vh;
+        perspective: 1500px; 
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        overflow: hidden;
+    }
+
+    .wallpaper-layer {
+        width: 100%;
+        height: 100%;
+        position: relative;
+        transform-style: preserve-3d;
+        will-change: transform;
+        
+        /* 默认状态：
+           1. 必须保持 scale(1.1)，否则开启 3D 时会突然放大，体验不好。
+           2. 初始角度为 0。
+        */
+        transform: scale(1.1) rotateX(0) rotateY(0);
+        
+        /* 默认过渡效果：设置慢一点，这样从 3D 回归 2D 时会很优雅 */
+        transition: transform 0.5s ease-out;
+    }
+
+    .wallpaper-layer img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: block;
+        /* 防止图片被拖拽 */
+        pointer-events: none; 
+    }
+    
+    /* 简单的提示文字，3秒后消失（可选） */
+    .tip {
+        position: absolute;
+        bottom: 20px;
+        color: rgba(255, 255, 255, 0.6);
+        font-family: sans-serif;
+        font-size: 14px;
+        z-index: 10;
+        animation: fadeOut 1s ease-in 3s forwards;
+        pointer-events: none;
+    }
+
+    @keyframes fadeOut {
+        to { opacity: 0; }
+    }
+
+</style>
+</head>
+<body>
+
+    <div class="wallpaper-container">
+        <div class="wallpaper-layer" id="wallpaper">
+            <img src="https://img.remit.ee/api/file/BQACAgUAAyEGAASHRsPbAAEPqJhpaaYTy3WU69TZzfNLvKDaQrnO2QACjBsAArMxUVdZyzhFBmE0PzgE.png" alt="Wallpaper">
+        </div>
+        <div class="tip">双击屏幕开启/关闭 3D 悬停效果</div>
+    </div>
+
+<script>
+    const wallpaper = document.getElementById('wallpaper');
+    
+    // 开关状态：默认关闭 (false)
+    let is3DActive = false;
+    
+    // 配置参数
+    const maxTilt = 5; 
+    
+    // 屏幕中心点缓存
+    let centerX = window.innerWidth / 2;
+    let centerY = window.innerHeight / 2;
+
+    window.addEventListener('resize', () => {
+        centerX = window.innerWidth / 2;
+        centerY = window.innerHeight / 2;
+    });
+
+    // 1. 监听双击事件：切换状态
+    window.addEventListener('dblclick', () => {
+        is3DActive = !is3DActive; // 取反状态
+
+        if (is3DActive) {
+            console.log("3D 效果已开启");
+            // 开启瞬间：将过渡时间设短，为了接下来的鼠标移动能灵敏响应
+            wallpaper.style.transition = 'transform 0.1s ease-out';
+        } else {
+            console.log("3D 效果已关闭");
+            // 关闭瞬间：
+            // 1. 将过渡时间设长，实现“平滑归位”的效果
+            wallpaper.style.transition = 'transform 0.5s ease-out';
+            // 2. 强制复位到 0 度 (保持 scale 1.1)
+            wallpaper.style.transform = `scale(1.1) rotateY(0deg) rotateX(0deg)`;
+        }
+    });
+
+    // 2. 监听鼠标移动
+    document.addEventListener('mousemove', (e) => {
+        // 如果开关没开，直接停止执行，不消耗性能
+        if (!is3DActive) return;
+
+        const xOffset = (e.clientX - centerX) / centerX;
+        const yOffset = (e.clientY - centerY) / centerY;
+
+        const rotateY = xOffset * maxTilt;
+        const rotateX = -yOffset * maxTilt;
+
+        wallpaper.style.transform = `scale(1.1) rotateY(${rotateY}deg) rotateX(${rotateX}deg)`;
+    });
+
+    // 可选：鼠标移出窗口时自动复位（即便在开启状态）
+    document.addEventListener('mouseleave', () => {
+        if (!is3DActive) return;
+        wallpaper.style.transition = 'transform 0.5s ease-out';
+        wallpaper.style.transform = `scale(1.1) rotateY(0deg) rotateX(0deg)`;
+        
+        // 恢复快速响应（加个延时，等复位动画做完）
+        setTimeout(() => {
+             if(is3DActive) wallpaper.style.transition = 'transform 0.1s ease-out';
+        }, 500);
+    });
+
+</script>
+</body>
+</html>
