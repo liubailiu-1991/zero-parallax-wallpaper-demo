@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D 视差壁纸 - 双击切换</title>
+    <style>
+        body { 
+            margin: 0; 
+            overflow: hidden; 
+            background-color: #000;
+            /* 禁止双击选中文字，提升体验 */
+            user-select: none; 
+            -webkit-user-select: none;
+        }
+        canvas { 
+            display: block; 
+        }
+        #loading {
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            color: white;
+            font-family: sans-serif;
+            font-size: 24px;
+            pointer-events: none;
+        }
+        /* 加一个提示，告诉用户可以双击 (可选，几秒后消失) */
+        #hint {
+            position: absolute;
+            bottom: 20px;
+            width: 100%;
+            text-align: center;
+            color: rgba(255, 255, 255, 0.5);
+            font-family: sans-serif;
+            font-size: 14px;
+            pointer-events: none;
+            animation: fadeOut 5s forwards;
+            animation-delay: 3s;
+        }
+        @keyframes fadeOut {
+            to { opacity: 0; }
+        }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pixi.js/7.3.2/pixi.min.js"></script>
+</head>
+<body>
+
+<div id="loading">正在加载资源...</div>
+<div id="hint">双击屏幕开启/关闭 3D 景深效果</div>
+
+<script>
+    // 1. 初始化 Pixi 应用
+    const app = new PIXI.Application({
+        resizeTo: window,
+        background: '#1099bb',
+        resolution: window.devicePixelRatio || 1,
+        autoDensity: true
+    });
+    document.body.appendChild(app.view);
+
+    // 图片资源配置 (根据你的文件结构)
+    const assets = {
+        bg: '03-bg.png',   
+        mid: '02-mid.png', 
+        fore: '01-fore.png' 
+    };
+
+    // 视差强度配置
+    const PARALLAX_STRENGTH = {
+        bg: 10,  
+        mid: 30, 
+        fore: 80 
+    };
+
+    // --- 核心修改 1：状态控制变量 ---
+    let isParallaxActive = false; // 默认为 false (静态)
+    let mouseX = 0;
+    let mouseY = 0;
+
+    // --- 核心修改 2：监听全局双击事件 ---
+    window.addEventListener('dblclick', () => {
+        isParallaxActive = !isParallaxActive; // 切换状态
+        console.log("视差状态:", isParallaxActive ? "开启" : "关闭");
+    });
+
+    async function setup() {
+        try {
+            const textureBg = await PIXI.Assets.load(assets.bg);
+            const textureMid = await PIXI.Assets.load(assets.mid);
+            const textureFore = await PIXI.Assets.load(assets.fore);
+
+            document.getElementById('loading').style.display = 'none';
+
+            const bgSprite = new PIXI.Sprite(textureBg);
+            const midSprite = new PIXI.Sprite(textureMid);
+            const foreSprite = new PIXI.Sprite(textureFore);
+
+            bgSprite.anchor.set(0.5);
+            midSprite.anchor.set(0.5);
+            foreSprite.anchor.set(0.5);
+
+            app.stage.addChild(bgSprite);
+            app.stage.addChild(midSprite);
+            app.stage.addChild(foreSprite);
+
+            const layers = [
+                { sprite: bgSprite, strength: PARALLAX_STRENGTH.bg },
+                { sprite: midSprite, strength: PARALLAX_STRENGTH.mid },
+                { sprite: foreSprite, strength: PARALLAX_STRENGTH.fore }
+            ];
+
+            function resize() {
+                const w = app.screen.width;
+                const h = app.screen.height;
+                const centerX = w / 2;
+                const centerY = h / 2;
+
+                layers.forEach(layer => {
+                    const sp = layer.sprite;
+                    const scale = Math.max(w / sp.texture.width, h / sp.texture.height) * 1.1; 
+                    sp.scale.set(scale);
+                    sp.x = centerX;
+                    sp.y = centerY;
+                    layer.initialX = centerX;
+                    layer.initialY = centerY;
+                });
+            }
+            resize();
+            window.addEventListener('resize', resize);
+
+            app.stage.eventMode = 'static';
+            app.stage.hitArea = app.screen;
+            app.stage.on('globalmousemove', (e) => {
+                mouseX = (e.global.x / app.screen.width) * 2 - 1;
+                mouseY = (e.global.y / app.screen.height) * 2 - 1;
+            });
+
+            // --- 核心修改 3：动画循环逻辑 ---
+            app.ticker.add(() => {
+                layers.forEach(layer => {
+                    let targetX, targetY;
+
+                    // 如果激活了视差：计算鼠标偏移
+                    if (isParallaxActive) {
+                        targetX = layer.initialX - (mouseX * layer.strength);
+                        targetY = layer.initialY - (mouseY * layer.strength);
+                    } 
+                    // 如果没激活（静态）：目标就是中心点（initialX），强制归位
+                    else {
+                        targetX = layer.initialX;
+                        targetY = layer.initialY;
+                    }
+
+                    // 线性插值 (Lerp)：无论切换到哪个状态，都会平滑过渡
+                    // 0.05 是平滑系数，想更跟手可以改成 0.1
+                    layer.sprite.x += (targetX - layer.sprite.x) * 0.05;
+                    layer.sprite.y += (targetY - layer.sprite.y) * 0.05;
+                });
+            });
+
+        } catch (error) {
+            console.error("资源加载失败:", error);
+            document.getElementById('loading').innerText = "加载失败，请检查网络或跨域设置";
+        }
+    }
+
+    setup();
+</script>
+</body>
+</html>
