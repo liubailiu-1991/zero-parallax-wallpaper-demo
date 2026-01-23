@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>shicha_02_light</title>
+    <style>
+        body { 
+            margin: 0; 
+            overflow: hidden; 
+            /* 1. 设置网页 body 背景为黑色 */
+            background-color: #000;
+        }
+        canvas { 
+            display: block; 
+        }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pixi.js/7.3.2/pixi.min.js"></script>
+</head>
+<body>
+
+<script>
+    // 1. 初始化 Pixi 应用
+    const app = new PIXI.Application({
+        resizeTo: window, 
+        // 2. 设置 Pixi 渲染器背景为黑色
+        background: '#000000',
+        resolution: window.devicePixelRatio || 1,
+        autoDensity: true
+    });
+    document.body.appendChild(app.view);
+
+    // --- 配置区域 ---
+    const assets = {
+        bg: 'https://p1.ssl.qhimg.com/t110b9a9301c5f97d30789b48b1.jpg',
+        mid: 'https://p4.ssl.qhimg.com/t110b9a9301373ae819d9c678d0.png',
+        fore: 'https://p0.ssl.qhimg.com/t110b9a93019330e9f5648fb5c8.png'
+    };
+
+    const PARALLAX_STRENGTH = {
+        bg: 10,
+        mid: 25,
+        fore: 50
+    };
+    // ----------------
+
+    let mouseX = 0;
+    let mouseY = 0;
+
+    async function setup() {
+        try {
+            const textureBg = await PIXI.Assets.load(assets.bg);
+            const textureMid = await PIXI.Assets.load(assets.mid);
+            const textureFore = await PIXI.Assets.load(assets.fore);
+
+            const bgSprite = new PIXI.Sprite(textureBg);
+            const midSprite = new PIXI.Sprite(textureMid);
+            const foreSprite = new PIXI.Sprite(textureFore);
+
+            bgSprite.anchor.set(0.5);
+            midSprite.anchor.set(0.5);
+            foreSprite.anchor.set(0.5);
+
+            app.stage.addChild(bgSprite);
+            app.stage.addChild(midSprite);
+            app.stage.addChild(foreSprite);
+
+            const layers = [
+                { sprite: bgSprite, strength: PARALLAX_STRENGTH.bg },
+                { sprite: midSprite, strength: PARALLAX_STRENGTH.mid },
+                { sprite: foreSprite, strength: PARALLAX_STRENGTH.fore }
+            ];
+
+            function resize() {
+                const w = app.screen.width;
+                const h = app.screen.height;
+                const centerX = w / 2;
+                const centerY = h / 2;
+
+                layers.forEach(layer => {
+                    const sp = layer.sprite;
+                    const scale = Math.max(w / sp.texture.width, h / sp.texture.height) * 1.1; 
+                    sp.scale.set(scale);
+                    layer.initialX = centerX;
+                    layer.initialY = centerY;
+                    sp.x = centerX; 
+                    sp.y = centerY;
+                });
+            }
+
+            resize();
+            window.addEventListener('resize', resize);
+
+            app.stage.eventMode = 'static';
+            app.stage.hitArea = app.screen;
+            
+            app.stage.on('globalmousemove', (e) => {
+                mouseX = (e.global.x / app.screen.width) * 2 - 1;
+                mouseY = (e.global.y / app.screen.height) * 2 - 1;
+            });
+
+            app.ticker.add(() => {
+                layers.forEach(layer => {
+                    const targetX = layer.initialX - (mouseX * layer.strength);
+                    const targetY = layer.initialY - (mouseY * layer.strength);
+                    layer.sprite.x += (targetX - layer.sprite.x) * 0.05;
+                    layer.sprite.y += (targetY - layer.sprite.y) * 0.05;
+                });
+            });
+
+        } catch (error) {
+            console.error("资源加载失败:", error);
+        }
+    }
+
+    setup();
+</script>
+
+</body>
+</html>
