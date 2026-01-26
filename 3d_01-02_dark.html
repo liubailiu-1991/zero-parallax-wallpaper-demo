@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>弱透视 · 高展示壁纸</title>
+
+<style>
+html, body {
+  margin: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #000;
+}
+
+#container {
+  width: 100%;
+  height: 100%;
+  perspective: 1600px;
+  overflow: hidden;
+}
+
+/* 壁纸主体 */
+#wallpaper {
+  width: 106%;
+  height: 106%;
+  position: absolute;
+  top: -3%;
+  left: -3%;
+  background-image: url("https://p4.ssl.qhimg.com/t110b9a9301ccd81ba5f64d8b45.jpg");
+  background-size: cover;
+  background-position: center;
+
+  /* ⭐ 关键：初始即为交互尺寸，避免首帧放大 */
+  transform: scale(1.06);
+
+  transform-style: preserve-3d;
+  transform-origin: center center;
+  will-change: transform;
+  transition: transform 0.14s ease-out;
+}
+</style>
+</head>
+
+<body>
+
+<div id="container">
+  <div id="wallpaper"></div>
+</div>
+
+<script>
+const wallpaper = document.getElementById("wallpaper");
+
+/* ===== 参数区（产品级） ===== */
+const BASE_SCALE = 1.06; // 基准尺寸
+const MAX_ROTATE = 3;    // 极弱旋转（度）
+const MAX_MOVE = 14;     // 轻位移（px）
+
+function ease(value) {
+  // 非线性衰减，防止四角极限
+  return Math.sign(value) * Math.pow(Math.abs(value), 0.92);
+}
+
+/* 鼠标交互 */
+document.addEventListener("mousemove", (e) => {
+  const x = (e.clientX / window.innerWidth - 0.5) * 2;
+  const y = (e.clientY / window.innerHeight - 0.5) * 2;
+
+  const ex = ease(x);
+  const ey = ease(y);
+
+  wallpaper.style.transform = `
+    scale(${BASE_SCALE})
+    translateX(${ex * MAX_MOVE}px)
+    translateY(${ey * MAX_MOVE}px)
+    rotateX(${-ey * MAX_ROTATE}deg)
+    rotateY(${ex * MAX_ROTATE}deg)
+  `;
+});
+
+/* 鼠标离开，回到稳定基准态 */
+document.addEventListener("mouseleave", () => {
+  wallpaper.style.transform = `scale(${BASE_SCALE})`;
+});
+</script>
+
+</body>
+</html>
